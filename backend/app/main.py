@@ -1,10 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .database import Base, engine
+from .database import Base, engine, SessionLocal
 from .routes import routes
+from .seed import seed_data
 
 # Criar tabelas
 Base.metadata.create_all(bind=engine)
+
+# Inserir dados iniciais
+db = SessionLocal()
+try:
+    # Verificar se já existem produtos
+    if db.query(Base.metadata.tables["products"]).count() == 0:
+        seed_data(db)
+finally:
+    db.close()
 
 app = FastAPI(title="Sistema de Vendas")
 

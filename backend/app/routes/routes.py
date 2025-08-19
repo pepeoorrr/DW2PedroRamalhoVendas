@@ -1,41 +1,38 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from ..database import SessionLocal
-from ..models.models import Product, Order, OrderItem
-from typing import List
+from ..models.models import Product, Pedido
+from typing import List, Optional
 from pydantic import BaseModel, constr, confloat, conint
-from datetime import datetime
 
 router = APIRouter()
 
 # Pydantic models
-class ProductBase(BaseModel):
-    name: constr(min_length=3, max_length=60)
-    description: str | None = None
-    price: confloat(ge=0.01)
-    stock: conint(ge=0)
-    category: str
-    sku: str | None = None
+class ProdutoBase(BaseModel):
+    nome: constr(min_length=3, max_length=60)
+    descricao: Optional[str] = None
+    preco: confloat(ge=0.01)
+    estoque: conint(ge=0)
+    categoria: str
+    sku: Optional[str] = None
 
-class ProductCreate(ProductBase):
+class ProdutoCreate(ProdutoBase):
     pass
 
-class ProductResponse(ProductBase):
+class ProdutoResponse(ProdutoBase):
     id: int
-    created_at: datetime
-    updated_at: datetime
 
     class Config:
         from_attributes = True
 
-class OrderItemBase(BaseModel):
-    product_id: int
-    quantity: int
-    price: float
+class ItemCarrinho(BaseModel):
+    produto_id: int
+    quantidade: int
 
-class OrderCreate(BaseModel):
-    items: List[OrderItemBase]
-    coupon: str | None = None
+class ConfirmarCarrinho(BaseModel):
+    itens: List[ItemCarrinho]
+    cupom: Optional[str] = None
 
 # Dependency
 def get_db():
@@ -46,102 +43,113 @@ def get_db():
         db.close()
 
 # Rotas
-@router.get("/products", response_model=List[ProductResponse])
-def get_products(db: Session = Depends(get_db)):
-    return db.query(Product).all()
+@router.get("/produtos", response_model=List[ProdutoResponse])
+def get_produtos(
+    search: Optional[str] = None,
+    categoria: Optional[str] = None,
+    sort: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Product)
+    
+    # Filtrar por busca
+    if search:
+        query = query.filter(or_(
+            Product.nome.ilike(f"%{search}%"),
+            Product.descricao.ilike(f"%{search}%")
+        ))
+    
+    # Filtrar por categoria
+    if categoria:
+        query = query.filter(Product.categoria == categoria)
+    
+    # Ordenar
+    if sort:
+        if sort == "nome":
+            query = query.order_by(Product.nome)
+        elif sort == "nome_desc":
+            query = query.order_by(Product.nome.desc())
+        elif sort == "preco":
+            query = query.order_by(Product.preco)
+        elif sort == "preco_desc":
+            query = query.order_by(Product.preco.desc())
+    
+    return query.all()
 
-@router.get("/products/{product_id}", response_model=ProductResponse)
-def get_product(product_id: int, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return product
-
-@router.post("/products", response_model=ProductResponse)
-def create_product(product: ProductCreate, db: Session = Depends(get_db)):
-    db_product = Product(**product.dict())
-    db.add(db_product)
+@router.post("/produtos", response_model=ProdutoResponse)
+def create_produto(produto: ProdutoCreate, db: Session = Depends(get_db)):
+    db_produto = Product(**produto.dict())
+    db.add(db_produto)
     db.commit()
-    db.refresh(db_product)
-    return db_product
+    db.refresh(db_produto)
+    return db_produto
 
-@router.put("/products/{product_id}", response_model=ProductResponse)
-def update_product(product_id: int, product: ProductCreate, db: Session = Depends(get_db)):
-    db_product = db.query(Product).filter(Product.id == product_id).first()
-    if not db_product:
+@router.put("/produtos/{produto_id}", response_model=ProdutoResponse)
+def update_produto(produto_id: int, produto: ProdutoCreate, db: Session = Depends(get_db)):
+    db_produto = db.query(Product).filter(Product.id == produto_id).first()
+    if not db_produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
     
-    for key, value in product.dict().items():
-        setattr(db_product, key, value)
+    for key, value in produto.dict().items():
+        setattr(db_produto, key, value)
     
     db.commit()
-    db.refresh(db_product)
-    return db_product
+    db.refresh(db_produto)
+    return db_produto
 
-@router.delete("/products/{product_id}")
-def delete_product(product_id: int, db: Session = Depends(get_db)):
-    db_product = db.query(Product).filter(Product.id == product_id).first()
-    if not db_product:
+@router.delete("/produtos/{produto_id}")
+def delete_produto(produto_id: int, db: Session = Depends(get_db)):
+    db_produto = db.query(Product).filter(Product.id == produto_id).first()
+    if not db_produto:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
     
-    db.delete(db_product)
+    db.delete(db_produto)
     db.commit()
     return {"message": "Produto removido com sucesso"}
 
-@router.post("/orders")
-def create_order(order: OrderCreate, db: Session = Depends(get_db)):
-    # Calcular total
+@router.post("/carrinho/confirmar")
+def confirmar_carrinho(carrinho: ConfirmarCarrinho, db: Session = Depends(get_db)):
     total = 0
-    order_items = []
     
-    for item in order.items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        if not product:
-            raise HTTPException(status_code=404, detail=f"Produto {item.product_id} não encontrado")
+    # Validar e processar itens
+    for item in carrinho.itens:
+        produto = db.query(Product).filter(Product.id == item.produto_id).first()
+        if not produto:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Produto {item.produto_id} não encontrado"
+            )
         
-        if product.stock < item.quantity:
-            raise HTTPException(status_code=400, detail=f"Estoque insuficiente para {product.name}")
+        if produto.estoque < item.quantidade:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Estoque insuficiente para o produto: {produto.nome}"
+            )
         
-        total += product.price * item.quantity
-        order_items.append({"product_id": product.id, "quantity": item.quantity, "price": product.price})
-        
-        # Atualizar estoque
-        product.stock -= item.quantity
+        total += produto.preco * item.quantidade
     
     # Aplicar cupom
-    discount = 0
-    if order.coupon == "ALUNO10":
-        discount = total * 0.1
-    
-    total_final = total - discount
+    if carrinho.cupom == "ALUNO10":
+        total = total * 0.9  # 10% de desconto
+    elif carrinho.cupom:
+        raise HTTPException(
+            status_code=400,
+            detail="Cupom inválido"
+        )
     
     # Criar pedido
-    db_order = Order(
-        total=total,
-        discount=discount,
-        total_final=total_final,
-        coupon=order.coupon
-    )
-    db.add(db_order)
-    db.commit()
-    db.refresh(db_order)
+    pedido = Pedido(total_final=total)
+    db.add(pedido)
     
-    # Criar itens do pedido
-    for item in order_items:
-        db_order_item = OrderItem(
-            order_id=db_order.id,
-            product_id=item["product_id"],
-            quantity=item["quantity"],
-            price=item["price"]
-        )
-        db.add(db_order_item)
+    # Atualizar estoque
+    for item in carrinho.itens:
+        produto = db.query(Product).filter(Product.id == item.produto_id).first()
+        produto.estoque -= item.quantidade
     
     db.commit()
     
     return {
-        "message": "Pedido criado com sucesso",
-        "order_id": db_order.id,
-        "total": total,
-        "discount": discount,
-        "total_final": total_final
+        "message": "Pedido confirmado com sucesso",
+        "pedido_id": pedido.id,
+        "total_final": total
     }
