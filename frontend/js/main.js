@@ -1,9 +1,21 @@
 // Configuração da API
 const API_URL = 'http://localhost:8000';
 
-// Carrinho
+// Estado global
 let cart = JSON.parse(localStorage.getItem('cart')) || [];
 let products = [];
+let currentFilters = {
+    search: '',
+    categoria: '',
+    precoMin: '',
+    precoMax: '',
+    estoqueMin: '',
+    faixaEtaria: ''
+};
+
+// Tema
+const theme = localStorage.getItem('theme') || 'light';
+document.documentElement.setAttribute('data-theme', theme);
 
 // Função para fazer requisições à API
 async function fetchAPI(endpoint, options = {}) {
@@ -114,13 +126,75 @@ function renderCart() {
     updateCartTotal();
 }
 
+// Funções de filtro
+function validateProduct(product) {
+    // Validação de faixa etária
+    if (currentFilters.faixaEtaria && !product.categoria.includes(currentFilters.faixaEtaria)) {
+        return false;
+    }
+
+    // Validação de preço
+    if (currentFilters.precoMin && product.preco < parseFloat(currentFilters.precoMin)) {
+        return false;
+    }
+    if (currentFilters.precoMax && product.preco > parseFloat(currentFilters.precoMax)) {
+        return false;
+    }
+
+    // Validação de estoque
+    if (currentFilters.estoqueMin && product.estoque < parseInt(currentFilters.estoqueMin)) {
+        return false;
+    }
+
+    // Validação de categoria
+    if (currentFilters.categoria && product.categoria !== currentFilters.categoria) {
+        return false;
+    }
+
+    // Validação de busca
+    if (currentFilters.search) {
+        const searchTerm = currentFilters.search.toLowerCase();
+        return product.nome.toLowerCase().includes(searchTerm) ||
+               (product.descricao && product.descricao.toLowerCase().includes(searchTerm));
+    }
+
+    return true;
+}
+
+function applyFilters() {
+    const filteredProducts = products.filter(validateProduct);
+    renderProducts(filteredProducts);
+}
+
+// Funções de tema
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+}
+
 // Funções de produtos
 async function loadProducts() {
     try {
-        products = await fetchAPI('/products');
-        renderProducts(products);
+        products = await fetchAPI('/produtos');
+        applyFilters();
     } catch (error) {
         console.error('Erro ao carregar produtos:', error);
+    }
+}
+
+function getFaixaEtariaLabel(categoria) {
+    switch(categoria) {
+        case 'fundamental1':
+            return '6-10 anos';
+        case 'fundamental2':
+            return '11-14 anos';
+        case 'medio':
+            return '15-17 anos';
+        default:
+            return 'Todas as idades';
     }
 }
 
@@ -128,15 +202,17 @@ function renderProducts(productsToRender) {
     const grid = document.getElementById('products-grid');
     grid.innerHTML = productsToRender.map(product => `
         <div class="product-card">
-            <img src="${product.image || 'https://via.placeholder.com/200'}" alt="${product.name}">
+            <img src="${product.image || 'https://via.placeholder.com/200'}" alt="${product.nome}">
             <div class="product-info">
-                <h3>${product.name}</h3>
-                <p>${product.description || ''}</p>
-                <p class="product-price">R$ ${product.price.toFixed(2)}</p>
-                <p class="product-stock">${product.stock} em estoque</p>
+                <h3>${product.nome}</h3>
+                <p>${product.descricao || ''}</p>
+                <p class="product-price">R$ ${product.preco.toFixed(2)}</p>
+                <p class="product-stock">${product.estoque} em estoque</p>
+                <p class="product-category">Categoria: ${product.categoria}</p>
+                <p class="product-age">Faixa etária: ${getFaixaEtariaLabel(product.categoria)}</p>
                 <button onclick="addToCart(${JSON.stringify(product)})"
-                        ${product.stock === 0 ? 'disabled' : ''}
-                        aria-label="Adicionar ${product.name} ao carrinho">
+                        ${product.estoque === 0 ? 'disabled' : ''}
+                        aria-label="Adicionar ${product.nome} ao carrinho">
                     Adicionar ao carrinho
                 </button>
             </div>
@@ -216,14 +292,36 @@ document.addEventListener('DOMContentLoaded', () => {
         renderProducts(sorted);
     });
     
-    // Busca
+    // Filtros avançados
     document.getElementById('search-input').addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        const filtered = products.filter(product => 
-            product.name.toLowerCase().includes(searchTerm)
-        );
-        renderProducts(filtered);
+        currentFilters.search = e.target.value;
+        applyFilters();
     });
+
+    document.getElementById('filter-form').addEventListener('change', (e) => {
+        const { id, value } = e.target;
+        switch(id) {
+            case 'filter-category':
+                currentFilters.categoria = value;
+                break;
+            case 'filter-price-min':
+                currentFilters.precoMin = value;
+                break;
+            case 'filter-price-max':
+                currentFilters.precoMax = value;
+                break;
+            case 'filter-stock-min':
+                currentFilters.estoqueMin = value;
+                break;
+            case 'filter-age-range':
+                currentFilters.faixaEtaria = value;
+                break;
+        }
+        applyFilters();
+    });
+
+    // Tema
+    document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
     
     // Admin
     const adminLink = document.getElementById('admin-link');
