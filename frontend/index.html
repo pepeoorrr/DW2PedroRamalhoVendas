@@ -3,31 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Vendas</title>
+    <title>Loja Escolar</title>
     <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <header>
-        <h1>Sistema de Vendas</h1>
+        <div class="header-content">
+            <h1>Loja Escolar</h1>
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Buscar produtos..." 
+                       aria-label="Buscar produtos">
+            </div>
+            <button id="cart-button" aria-label="Abrir carrinho" aria-pressed="false">
+                🛒 <span id="cart-count" aria-live="polite">0</span>
+            </button>
+        </div>
         <nav>
-            <ul>
-                <li><a href="#" class="active">Início</a></li>
-                <li><a href="#">Produtos</a></li>
-                <li><a href="#">Vendas</a></li>
-                <li><a href="#">Relatórios</a></li>
-            </ul>
+            <button id="sort-name" aria-pressed="false">Ordenar por Nome</button>
+            <button id="sort-price-asc" aria-pressed="false">Preço Crescente</button>
+            <button id="sort-price-desc" aria-pressed="false">Preço Decrescente</button>
+            <a href="#" id="admin-link" aria-label="Administração de produtos">Admin</a>
         </nav>
     </header>
 
     <main>
-        <section id="dashboard">
-            <!-- Conteúdo principal será carregado aqui -->
+        <section id="products-grid" aria-label="Lista de produtos">
+            <!-- Grid de produtos será carregado aqui -->
         </section>
     </main>
 
-    <footer>
-        <p>&copy; 2025 Sistema de Vendas</p>
-    </footer>
+    <!-- Modal do Carrinho -->
+    <div id="cart-modal" class="modal" aria-hidden="true">
+        <div class="modal-content">
+            <h2>Seu Carrinho</h2>
+            <div id="cart-items"></div>
+            <div class="cart-summary">
+                <div class="coupon">
+                    <input type="text" id="coupon-input" placeholder="Código do cupom" 
+                           aria-label="Digite o código do cupom">
+                    <button id="apply-coupon">Aplicar</button>
+                </div>
+                <div class="total">
+                    <p>Subtotal: <span id="cart-subtotal">R$ 0,00</span></p>
+                    <p>Desconto: <span id="cart-discount">R$ 0,00</span></p>
+                    <p>Total: <span id="cart-total">R$ 0,00</span></p>
+                </div>
+                <button id="checkout-button">Finalizar Pedido</button>
+            </div>
+            <button id="close-cart" aria-label="Fechar carrinho">×</button>
+        </div>
+    </div>
+
+    <!-- Modal de Administração -->
+    <div id="admin-modal" class="modal" aria-hidden="true">
+        <div class="modal-content">
+            <h2>Administração de Produtos</h2>
+            <form id="product-form">
+                <div class="form-group">
+                    <label for="product-name">Nome*</label>
+                    <input type="text" id="product-name" required minlength="3" maxlength="60">
+                </div>
+                <div class="form-group">
+                    <label for="product-description">Descrição</label>
+                    <textarea id="product-description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="product-price">Preço*</label>
+                    <input type="number" id="product-price" required min="0.01" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="product-stock">Estoque*</label>
+                    <input type="number" id="product-stock" required min="0">
+                </div>
+                <div class="form-group">
+                    <label for="product-category">Categoria*</label>
+                    <select id="product-category" required>
+                        <option value="">Selecione uma categoria</option>
+                        <option value="papelaria">Papelaria</option>
+                        <option value="livros">Livros</option>
+                        <option value="mochilas">Mochilas</option>
+                        <option value="uniforme">Uniforme</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="product-sku">SKU</label>
+                    <input type="text" id="product-sku">
+                </div>
+                <button type="submit">Salvar Produto</button>
+            </form>
+            <button id="close-admin" aria-label="Fechar formulário">×</button>
+        </div>
+    </div>
 
     <script src="js/main.js"></script>
 </body>
