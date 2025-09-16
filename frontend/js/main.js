@@ -62,23 +62,28 @@ function updateCartTotal() {
 }
 
 function addToCart(product) {
-    if (product.stock === 0) {
+    if (product.estoque === 0) {
         alert('Produto fora de estoque');
         return;
     }
-    
     const cartItem = cart.find(item => item.id === product.id);
     if (cartItem) {
-        if (cartItem.quantity < product.stock) {
+        if (cartItem.quantity < product.estoque) {
             cartItem.quantity++;
         } else {
             alert('Quantidade máxima atingida');
             return;
         }
     } else {
-        cart.push({ ...product, quantity: 1 });
+        cart.push({
+            id: product.id,
+            nome: product.nome,
+            preco: product.preco,
+            estoque: product.estoque,
+            categoria: product.categoria,
+            quantity: 1
+        });
     }
-    
     localStorage.setItem('cart', JSON.stringify(cart));
     updateCartCount();
     renderCart();
@@ -111,8 +116,8 @@ function renderCart() {
     cartItems.innerHTML = cart.map(item => `
         <div class="cart-item">
             <div>
-                <h3>${item.name}</h3>
-                <p>R$ ${item.price.toFixed(2)} x ${item.quantity}</p>
+                <h3>${item.nome}</h3>
+                <p>R$ ${item.preco.toFixed(2)} x ${item.quantity}</p>
             </div>
             <div>
                 <button onclick="updateCartQuantity(${item.id}, -1)">-</button>
@@ -122,7 +127,6 @@ function renderCart() {
             </div>
         </div>
     `).join('');
-    
     updateCartTotal();
 }
 
@@ -341,16 +345,16 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         
         const formData = {
-            name: document.getElementById('product-name').value,
-            description: document.getElementById('product-description').value,
-            price: parseFloat(document.getElementById('product-price').value),
-            stock: parseInt(document.getElementById('product-stock').value),
-            category: document.getElementById('product-category').value,
+            nome: document.getElementById('product-name').value,
+            descricao: document.getElementById('product-description').value,
+            preco: parseFloat(document.getElementById('product-price').value),
+            estoque: parseInt(document.getElementById('product-stock').value),
+            categoria: document.getElementById('product-category').value,
             sku: document.getElementById('product-sku').value
         };
         
         try {
-            await fetchAPI('/products', {
+            await fetchAPI('/produtos', {
                 method: 'POST',
                 body: JSON.stringify(formData)
             });

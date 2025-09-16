@@ -1,0 +1,48 @@
+### Testes Manuais - Thunder Client
+
+# GET todos os produtos
+GET http://localhost:8000/produtos
+
+### GET produto por nome
+GET http://localhost:8000/produtos?search=lápis
+
+### POST novo produto
+POST http://localhost:8000/produtos
+Content-Type: application/json
+
+{
+  "nome": "Caderno 200 folhas",
+  "descricao": "Caderno universitário capa dura",
+  "preco": 19.90,
+  "estoque": 50,
+  "categoria": "Papelaria",
+  "sku": "CAD200F"
+}
+
+### PUT atualizar produto
+PUT http://localhost:8000/produtos/1
+Content-Type: application/json
+
+{
+  "nome": "Caderno 200 folhas",
+  "descricao": "Caderno universitário capa dura",
+  "preco": 17.90,
+  "estoque": 40,
+  "categoria": "Papelaria",
+  "sku": "CAD200F"
+}
+
+### DELETE produto
+DELETE http://localhost:8000/produtos/1
+
+### POST confirmar carrinho
+POST http://localhost:8000/carrinho/confirmar
+Content-Type: application/json
+
+{
+  "itens": [
+    { "produto_id": 2, "quantidade": 3 },
+    { "produto_id": 5, "quantidade": 1 }
+  ],
+  "cupom": "ALUNO10"
+}
